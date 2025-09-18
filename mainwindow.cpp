@@ -836,8 +836,16 @@ void MainWindow::addProfileButton(int tabIndex, const ScanProfile& profile) {
         "}"
     );
 
+    // Включаем контекстное меню для кнопки профиля
+    profileButton->setContextMenuPolicy(Qt::CustomContextMenu);
+
     connect(profileButton, &QPushButton::clicked, [this, profile]() {
         scanWithProfile(profile);
+    });
+
+    // Подключаем сигнал контекстного меню для редактирования профиля
+    connect(profileButton, &QPushButton::customContextMenuRequested, [this, tabIndex, profile](const QPoint& pos) {
+        showProfileContextMenu(tabIndex, profile, pos);
     });
 
     // Вставляем кнопку перед stretch элементом
@@ -845,6 +853,205 @@ void MainWindow::addProfileButton(int tabIndex, const ScanProfile& profile) {
     if (layout) {
         int insertIndex = layout->count() - 1; // Перед stretch
         layout->insertWidget(insertIndex, profileButton);
+    }
+}
+
+void MainWindow::showProfileContextMenu(int tabIndex, const ScanProfile& profile, const QPoint& pos) {
+    QMenu contextMenu(this);
+    
+    QAction* editAction = contextMenu.addAction("Редактировать профиль");
+    QAction* deleteAction = contextMenu.addAction("Удалить профиль");
+    
+    QAction* selectedAction = contextMenu.exec(QCursor::pos());
+    
+    if (selectedAction == editAction) {
+        editProfile(tabIndex, profile);
+    } else if (selectedAction == deleteAction) {
+        // Удаляем профиль из конфига
+        if (tabIndex < tabInfos.size()) {
+            auto& profiles = tabInfos[tabIndex].profiles;
+            profiles.erase(std::remove_if(profiles.begin(), profiles.end(),
+                [&profile](const ScanProfile& p) { return p.name == profile.name; }), profiles.end());
+            
+            // Сохраняем изменения
+            saveTabs();
+            
+            // Перезагружаем вкладку
+            setupTabContent(tabIndex);
+            
+            ui->statusbar->showMessage("Профиль удален: " + profile.name);
+        }
+    }
+}
+
+void MainWindow::editProfile(int tabIndex, const ScanProfile& profile) {
+    QDialog dialog(this);
+    dialog.setWindowTitle("Редактировать профиль");
+    dialog.setModal(true);
+    dialog.resize(500, 600);
+
+    QVBoxLayout* mainLayout = new QVBoxLayout(&dialog);
+
+    // Название профиля
+    QHBoxLayout* nameLayout = new QHBoxLayout();
+    QLabel* nameLabel = new QLabel("Название профиля:");
+    QLineEdit* nameEdit = new QLineEdit(profile.name);
+    nameLayout->addWidget(nameLabel);
+    nameLayout->addWidget(nameEdit);
+    mainLayout->addLayout(nameLayout);
+
+    // Режим цвета
+    QGroupBox* colorGroup = new QGroupBox("Режим цвета");
+    QVBoxLayout* colorLayout = new QVBoxLayout(colorGroup);
+    QComboBox* colorCombo = new QComboBox();
+    colorCombo->addItems({"Цветной", "Черно-белый", "Оттенки серого"});
+    colorCombo->setCurrentText(profile.colorMode);
+    colorLayout->addWidget(colorCombo);
+    mainLayout->addWidget(colorGroup);
+
+    // Разрешение
+    QGroupBox* resolutionGroup = new QGroupBox("Разрешение");
+    QVBoxLayout* resolutionLayout = new QVBoxLayout(resolutionGroup);
+    QComboBox* resolutionCombo = new QComboBox();
+    resolutionCombo->addItems({"75 DPI", "150 DPI", "300 DPI", "600 DPI"});
+    resolutionCombo->setCurrentText(profile.resolution);
+    resolutionLayout->addWidget(resolutionCombo);
+    mainLayout->addWidget(resolutionGroup);
+
+    // Область сканирования
+    QGroupBox* areaGroup = new QGroupBox("Область сканирования");
+    QVBoxLayout* areaLayout = new QVBoxLayout(areaGroup);
+    QComboBox* areaCombo = new QComboBox();
+    areaCombo->addItems({"A4", "A3", "A5", "Letter", "Legal", "Tabloid"});
+    areaCombo->setCurrentText(profile.scanArea);
+    areaLayout->addWidget(areaCombo);
+    mainLayout->addWidget(areaGroup);
+
+    // Путь сохранения
+    QGroupBox* pathGroup = new QGroupBox("Путь сохранения");
+    QVBoxLayout* pathLayout = new QVBoxLayout(pathGroup);
+    QHBoxLayout* pathButtonLayout = new QHBoxLayout();
+    QLineEdit* pathEdit = new QLineEdit(profile.outputPath);
+    QPushButton* pathButton = new QPushButton("Выбрать");
+    pathButtonLayout->addWidget(pathEdit);
+    pathButtonLayout->addWidget(pathButton);
+    pathLayout->addLayout(pathButtonLayout);
+    mainLayout->addWidget(pathGroup);
+
+    connect(pathButton, &QPushButton::clicked, [pathEdit]() {
+        QString dir = QFileDialog::getExistingDirectory(nullptr, "Выберите папку для сохранения");
+        if (!dir.isEmpty()) {
+            pathEdit->setText(dir);
+        }
+    });
+
+    // Префикс файла
+    QGroupBox* prefixGroup = new QGroupBox("Префикс файла");
+    QVBoxLayout* prefixLayout = new QVBoxLayout(prefixGroup);
+    QLineEdit* prefixEdit = new QLineEdit(profile.filePrefix);
+    prefixLayout->addWidget(prefixEdit);
+    mainLayout->addWidget(prefixGroup);
+
+    // Формат имени файла
+    QGroupBox* formatGroup = new QGroupBox("Формат имени файла");
+    QVBoxLayout* formatLayout = new QVBoxLayout(formatGroup);
+    QComboBox* formatCombo = new QComboBox();
+    formatCombo->addItems({"PREFIX_DATETIME", "PREFIX_DATE", "PREFIX_TIME", "PREFIX_NUMBER", "PREFIX_ONLY"});
+    formatCombo->setCurrentText(profile.fileFormat);
+    
+    QLabel* previewLabel = new QLabel("Предварительный просмотр:");
+    QLabel* previewText = new QLabel();
+    previewText->setStyleSheet("color: #666; font-style: italic;");
+    
+    formatLayout->addWidget(formatCombo);
+    formatLayout->addWidget(previewLabel);
+    formatLayout->addWidget(previewText);
+    mainLayout->addWidget(formatGroup);
+
+    // Формат выходного файла
+    QGroupBox* outputGroup = new QGroupBox("Формат выходного файла");
+    QVBoxLayout* outputLayout = new QVBoxLayout(outputGroup);
+    QComboBox* outputCombo = new QComboBox();
+    outputCombo->addItems({"PNG", "JPEG", "PDF", "TIFF", "BMP"});
+    outputCombo->setCurrentText(profile.outputFormat);
+    outputLayout->addWidget(outputCombo);
+    mainLayout->addWidget(outputGroup);
+
+    // Качество
+    QGroupBox* qualityGroup = new QGroupBox("Качество");
+    QVBoxLayout* qualityLayout = new QVBoxLayout(qualityGroup);
+    QSpinBox* qualitySpin = new QSpinBox();
+    qualitySpin->setRange(1, 100);
+    qualitySpin->setValue(profile.quality);
+    qualityLayout->addWidget(qualitySpin);
+    mainLayout->addWidget(qualityGroup);
+
+    // Обновление предварительного просмотра
+    auto updatePreview = [=]() {
+        QString prefix = prefixEdit->text();
+        QString format = formatCombo->currentText();
+        
+        // Создаем временный профиль для генерации предварительного просмотра
+        ScanProfile tempProfile;
+        tempProfile.filePrefix = prefix;
+        tempProfile.fileFormat = format;
+        tempProfile.outputPath = "/tmp"; // Временный путь для предварительного просмотра
+        
+        QString preview = generateFileName(tempProfile);
+        // Убираем путь и расширение для предварительного просмотра
+        QFileInfo fileInfo(preview);
+        previewText->setText(fileInfo.baseName());
+    };
+
+    connect(prefixEdit, &QLineEdit::textChanged, updatePreview);
+    connect(formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updatePreview);
+    updatePreview();
+
+    // Кнопки OK/Cancel
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* okButton = new QPushButton("OK");
+    QPushButton* cancelButton = new QPushButton("Отмена");
+
+    connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    mainLayout->addLayout(buttonLayout);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        // Создаем обновленный профиль
+        ScanProfile updatedProfile = profile;
+        updatedProfile.name = nameEdit->text();
+        updatedProfile.colorMode = colorCombo->currentText();
+        updatedProfile.resolution = resolutionCombo->currentText();
+        updatedProfile.scanArea = areaCombo->currentText();
+        updatedProfile.outputPath = pathEdit->text();
+        updatedProfile.filePrefix = prefixEdit->text();
+        updatedProfile.fileFormat = formatCombo->currentText();
+        updatedProfile.outputFormat = outputCombo->currentText();
+        updatedProfile.quality = qualitySpin->value();
+        updatedProfile.buttonText = updatedProfile.name;
+
+        // Обновляем профиль в конфиге
+        if (tabIndex < tabInfos.size()) {
+            auto& profiles = tabInfos[tabIndex].profiles;
+            for (auto& p : profiles) {
+                if (p.name == profile.name) {
+                    p = updatedProfile;
+                    break;
+                }
+            }
+            
+            // Сохраняем изменения
+            saveTabs();
+            
+            // Перезагружаем вкладку
+            setupTabContent(tabIndex);
+            
+            ui->statusbar->showMessage("Профиль обновлен: " + updatedProfile.name);
+        }
     }
 }
 

@@ -89,6 +89,8 @@ private:
     void scanWithProfile(const ScanProfile& profile);
     void showProfileDialog(int tabIndex);
     void showTabContextMenuForProfiles(int tabIndex, const QPoint& pos);
+    void showProfileContextMenu(int tabIndex, const ScanProfile& profile, const QPoint& pos);
+    void editProfile(int tabIndex, const ScanProfile& profile);
     QString generateFileName(const ScanProfile& profile);
     void saveImageAsPDF(const QImage& image, const QString& filename, int quality, const QString& resolution, const QString& scanArea);
 };
