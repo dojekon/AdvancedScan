@@ -131,19 +131,14 @@ void TabManager::setupTabContent(int tabIndex)
     QHBoxLayout* layout = new QHBoxLayout(tabWidgetPtr);
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(15);
+    
 
-    // Добавляем растягивающийся элемент для центрирования
-    layout->addStretch();
-
-    // Добавляем существующие профили
+    // Добавляем существующие профили (без центрирования)
     if (tabIndex < static_cast<int>(tabInfos.size())) {
         for (const auto& profile : tabInfos[tabIndex].profiles) {
             addProfileButton(tabIndex, profile);
         }
     }
-
-    // Добавляем растягивающийся элемент для центрирования
-    layout->addStretch();
 
     // Включаем контекстное меню для вкладки
     tabWidgetPtr->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -165,11 +160,10 @@ void TabManager::addProfileButton(int tabIndex, const ProfileManager::ScanProfil
     setupProfileButton(profileButton, profile);
     connectProfileButton(profileButton, profile);
 
-    // Вставляем кнопку перед stretch элементом
+    // Добавляем кнопку в layout
     QHBoxLayout* layout = qobject_cast<QHBoxLayout*>(tabWidgetPtr->layout());
     if (layout) {
-        int insertIndex = layout->count() - 1; // Перед stretch
-        layout->insertWidget(insertIndex, profileButton);
+        layout->addWidget(profileButton);
     }
 }
 
@@ -447,27 +441,15 @@ void TabManager::clearTabContent(QWidget* tabWidgetPtr)
 
 void TabManager::setupProfileButton(QPushButton* button, const ProfileManager::ScanProfile& profile)
 {
-    button->setFixedSize(120, 120); // Большие квадратные кнопки
-    button->setStyleSheet(
-        "QPushButton {"
-        "    background-color: #2196F3;"
-        "    color: white;"
-        "    border: none;"
-        "    border-radius: 12px;"
-        "    font-weight: bold;"
-        "    font-size: 14px;"
-        "    padding: 8px;"
-        "    text-align: center;"
-        "}"
-        "QPushButton:hover {"
-        "    background-color: #1976D2;"
-        "    transform: scale(1.05);"
-        "}"
-        "QPushButton:pressed {"
-        "    background-color: #1565C0;"
-        "    transform: scale(0.95);"
-        "}"
-    );
+    // Квадратные кнопки фиксированного размера
+    button->setFixedSize(150, 150);
+    button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+    // Увеличиваем размер шрифта
+    QFont font = button->font();
+    font.setPointSize(12);
+    font.setBold(true);
+    button->setFont(font);
 
     // Включаем контекстное меню для кнопки профиля
     button->setContextMenuPolicy(Qt::CustomContextMenu);

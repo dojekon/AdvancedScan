@@ -41,8 +41,8 @@ set(PROJECT_SOURCES
         # ${TS_FILES}
 )
 
-# Устанавливаем выходную директорию для исполняемого файла
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+# Устанавливаем выходную директорию для исполняемого файла в build
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(AdvancedScan
