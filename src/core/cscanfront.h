@@ -3,7 +3,7 @@
 
 #include <QImage>
 #include <QStringList>
-#include <cscanner.h>
+#include "cscanner.h"
 
 class CScanFront {
 public:

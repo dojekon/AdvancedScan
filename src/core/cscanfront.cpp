@@ -1,7 +1,7 @@
 #include "cscanfront.h"
 
 #include <QProcess>
-#include <cscanner.h>
+#include "cscanner.h"
 #include <qstring.h>
 #include <QImage>
 #include <memory>

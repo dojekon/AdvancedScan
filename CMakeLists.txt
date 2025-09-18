@@ -18,16 +18,31 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 set(PROJECT_SOURCES
         main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
-        cscanfront.h cscanfront.cpp
-        cscanner.h cscanner.cpp
-        settings.h settings.cpp
-        settingswindow.h settingswindow.cpp
+        src/ui/mainwindow.cpp
+        src/ui/mainwindow.h
+        src/ui/mainwindow.ui
+        src/ui/settingswindow.h
+        src/ui/settingswindow.cpp
+        src/core/cscanfront.h 
+        src/core/cscanfront.cpp
+        src/core/cscanner.h 
+        src/core/cscanner.cpp
+        src/core/settings.h 
+        src/core/settings.cpp
+        src/managers/scannermanager.h
+        src/managers/scannermanager.cpp
+        src/managers/profilemanager.h
+        src/managers/profilemanager.cpp
+        src/managers/tabmanager.h
+        src/managers/tabmanager.cpp
+        src/managers/filemanager.h
+        src/managers/filemanager.cpp
         resources.qrc
         # ${TS_FILES}
 )
+
+# Устанавливаем выходную директорию для исполняемого файла
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(AdvancedScan

@@ -1,4 +1,5 @@
 #include "settingswindow.h"
+#include "../core/settings.h"
 #include <QApplication>
 #include <QMessageBox>
 #include <QDebug>

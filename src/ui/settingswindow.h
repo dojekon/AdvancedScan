@@ -16,7 +16,7 @@
 #include <QFileDialog>
 #include <QSlider>
 #include <QCloseEvent>
-#include "settings.h"
+#include "../core/settings.h"
 
 class SettingsWindow : public QDialog
 {
