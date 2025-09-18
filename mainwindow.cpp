@@ -459,6 +459,19 @@ void MainWindow::showProfileDialog(int tabIndex) {
     formatLayout->addWidget(formatCombo);
     fileLayout->addLayout(formatLayout);
 
+    // Формат выходного файла
+    QHBoxLayout* outputFormatLayout = new QHBoxLayout();
+    QLabel* outputFormatLabel = new QLabel("Формат файла:");
+    QComboBox* outputFormatCombo = new QComboBox();
+    outputFormatCombo->addItem("PNG", "PNG");
+    outputFormatCombo->addItem("JPEG", "JPEG");
+    outputFormatCombo->addItem("PDF", "PDF");
+    outputFormatCombo->addItem("TIFF", "TIFF");
+    outputFormatCombo->addItem("BMP", "BMP");
+    outputFormatLayout->addWidget(outputFormatLabel);
+    outputFormatLayout->addWidget(outputFormatCombo);
+    fileLayout->addLayout(outputFormatLayout);
+
     // Предварительный просмотр названия файла
     QHBoxLayout* previewLayout = new QHBoxLayout();
     QLabel* previewLabel = new QLabel("Предварительный просмотр:");
@@ -472,6 +485,7 @@ void MainWindow::showProfileDialog(int tabIndex) {
     auto updatePreview = [=]() {
         QString prefix = prefixEdit->text().isEmpty() ? "Документ" : prefixEdit->text();
         QString format = formatCombo->currentData().toString();
+        QString outputFormat = outputFormatCombo->currentData().toString();
         QString preview;
         
         QDateTime now = QDateTime::currentDateTime();
@@ -490,11 +504,15 @@ void MainWindow::showProfileDialog(int tabIndex) {
             preview = now.toString("yyyy-MM-dd_hh-mm-ss");
         }
         
+        // Добавляем расширение файла
+        preview += "." + outputFormat.toLower();
+        
         previewText->setText(preview);
     };
 
     connect(prefixEdit, &QLineEdit::textChanged, updatePreview);
     connect(formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updatePreview);
+    connect(outputFormatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updatePreview);
 
     mainLayout->addWidget(fileGroup);
 
@@ -524,6 +542,7 @@ void MainWindow::showProfileDialog(int tabIndex) {
         // Настройки файла
         newProfile.filePrefix = prefixEdit->text().isEmpty() ? "Документ" : prefixEdit->text();
         newProfile.fileFormat = formatCombo->currentData().toString();
+        newProfile.outputFormat = outputFormatCombo->currentData().toString();
 
         Settings& settings = Settings::getInstance();
         newProfile.outputPath = settings.getDefaultOutputPath();
@@ -655,6 +674,7 @@ void MainWindow::loadTabs() {
             profile.outputPath = profileData.value("outputPath", "").toString();
             profile.filePrefix = profileData.value("filePrefix", "").toString();
             profile.fileFormat = profileData.value("fileFormat", "PREFIX_DATETIME").toString();
+            profile.outputFormat = profileData.value("outputFormat", "PNG").toString();
             profile.quality = profileData.value("quality", 90).toInt();
             profile.buttonText = profileData.value("buttonText", profile.name).toString();
             
@@ -700,6 +720,7 @@ void MainWindow::saveTabs() {
             profileData["outputPath"] = profile.outputPath;
             profileData["filePrefix"] = profile.filePrefix;
             profileData["fileFormat"] = profile.fileFormat;
+            profileData["outputFormat"] = profile.outputFormat;
             profileData["quality"] = profile.quality;
             profileData["buttonText"] = profile.buttonText;
             
@@ -854,7 +875,12 @@ void MainWindow::scanWithProfile(const ScanProfile& profile) {
         // Генерируем имя файла согласно настройкам профиля
         QString filename = generateFileName(profile);
 
-        image.save(filename, nullptr, profile.quality);
+        // Сохраняем изображение в выбранном формате
+        if (profile.outputFormat == "PDF") {
+            saveImageAsPDF(image, filename, profile.quality, profile.resolution, profile.scanArea);
+        } else {
+            image.save(filename, nullptr, profile.quality);
+        }
 
         QMessageBox::information(this, "Сканирование завершено",
                                "Файл сохранен: " + filename);
@@ -890,6 +916,67 @@ QString MainWindow::generateFileName(const ScanProfile& profile) {
         filename = profile.filePrefix + "_" + now.toString("yyyy-MM-dd_hh-mm-ss");
     }
     
-    return profile.outputPath + "/" + filename + activeDevice->getExtension();
+    // Добавляем расширение файла согласно выбранному формату
+    QString extension = "." + profile.outputFormat.toLower();
+    return profile.outputPath + "/" + filename + extension;
+}
+
+void MainWindow::saveImageAsPDF(const QImage& image, const QString& filename, int quality, const QString& resolution, const QString& scanArea) {
+    // Создаем PDF документ
+    QPdfWriter pdfWriter(filename);
+    
+    // Устанавливаем размер страницы согласно настройкам профиля
+    QPageSize::PageSizeId pageSize = QPageSize::A4; // По умолчанию
+    
+    if (scanArea.contains("A4", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::A4;
+    } else if (scanArea.contains("A3", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::A3;
+    } else if (scanArea.contains("A5", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::A5;
+    } else if (scanArea.contains("Letter", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::Letter;
+    } else if (scanArea.contains("Legal", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::Legal;
+    } else if (scanArea.contains("Tabloid", Qt::CaseInsensitive)) {
+        pageSize = QPageSize::Tabloid;
+    }
+    
+    pdfWriter.setPageSize(QPageSize(pageSize));
+    
+    // Извлекаем DPI из разрешения профиля
+    int dpi = 300; // По умолчанию
+    
+    // Ищем DPI в строке разрешения (например "300 DPI")
+    if (resolution.contains("DPI")) {
+        QString dpiStr = resolution.split(" ").first();
+        bool ok;
+        int resDpi = dpiStr.toInt(&ok);
+        if (ok) {
+            dpi = resDpi;
+        }
+    }
+    pdfWriter.setResolution(dpi);
+    
+    QPainter painter(&pdfWriter);
+    
+    // Масштабируем изображение под размер страницы
+    QRect pageRect = painter.viewport();
+    QSize imageSize = image.size();
+    
+    // Вычисляем масштаб для вписывания изображения в страницу
+    qreal scaleX = static_cast<qreal>(pageRect.width()) / imageSize.width();
+    qreal scaleY = static_cast<qreal>(pageRect.height()) / imageSize.height();
+    qreal scale = qMin(scaleX, scaleY);
+    
+    QSize scaledSize = imageSize * scale;
+    QRect imageRect((pageRect.width() - scaledSize.width()) / 2,
+                    (pageRect.height() - scaledSize.height()) / 2,
+                    scaledSize.width(),
+                    scaledSize.height());
+    
+    // Рисуем изображение
+    painter.drawImage(imageRect, image);
+    painter.end();
 }
 

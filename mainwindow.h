@@ -13,6 +13,9 @@
 #include <QGroupBox>
 #include <QComboBox>
 #include <QSpinBox>
+#include <QPdfWriter>
+#include <QPainter>
+#include <QPageSize>
 #include <vector>
 #include <memory>
 
@@ -56,6 +59,7 @@ private:
         QString outputPath;
         QString filePrefix;
         QString fileFormat;
+        QString outputFormat;
         int quality;
         QString buttonText;
     };
@@ -86,5 +90,6 @@ private:
     void showProfileDialog(int tabIndex);
     void showTabContextMenuForProfiles(int tabIndex, const QPoint& pos);
     QString generateFileName(const ScanProfile& profile);
+    void saveImageAsPDF(const QImage& image, const QString& filename, int quality, const QString& resolution, const QString& scanArea);
 };
 #endif // MAINWINDOW_H
