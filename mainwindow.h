@@ -10,6 +10,9 @@
 #include <QMessageBox>
 #include <QMenu>
 #include <QAction>
+#include <QGroupBox>
+#include <QComboBox>
+#include <QSpinBox>
 #include <vector>
 #include <memory>
 
@@ -52,6 +55,7 @@ private:
         QString scanArea;
         QString outputPath;
         QString filePrefix;
+        QString fileFormat;
         int quality;
         QString buttonText;
     };
@@ -80,5 +84,7 @@ private:
     void addProfileButton(int tabIndex, const ScanProfile& profile);
     void scanWithProfile(const ScanProfile& profile);
     void showProfileDialog(int tabIndex);
+    void showTabContextMenuForProfiles(int tabIndex, const QPoint& pos);
+    QString generateFileName(const ScanProfile& profile);
 };
 #endif // MAINWINDOW_H

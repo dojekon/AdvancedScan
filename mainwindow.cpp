@@ -319,6 +319,33 @@ void MainWindow::deleteTab() {
     }
 }
 
+void MainWindow::showTabContextMenuForProfiles(int tabIndex, const QPoint& pos) {
+    if (tabIndex < 0 || tabIndex >= static_cast<int>(tabInfos.size())) {
+        return;
+    }
+
+    TabInfo& tabInfo = tabInfos[tabIndex];
+
+    // Проверяем лимит кнопок (максимум 5)
+    if (tabInfo.profiles.size() >= 5) {
+        QMessageBox::information(this, "Лимит профилей", 
+                               "Максимальное количество профилей на вкладке: 5");
+        return;
+    }
+
+    QMenu* contextMenu = new QMenu(this);
+    QAction* createProfileAction = contextMenu->addAction("Создать профиль");
+
+    connect(createProfileAction, &QAction::triggered, [this, tabIndex]() {
+        showProfileDialog(tabIndex);
+    });
+
+    // Показываем меню
+    QWidget* tabWidget = ui->tabWidget->widget(tabIndex);
+    contextMenu->exec(tabWidget->mapToGlobal(pos));
+    delete contextMenu;
+}
+
 void MainWindow::showProfileDialog(int tabIndex) {
     if (tabIndex < 0 || tabIndex >= static_cast<int>(tabInfos.size())) {
         return;
@@ -326,24 +353,154 @@ void MainWindow::showProfileDialog(int tabIndex) {
 
     TabInfo& tabInfo = tabInfos[tabIndex];
 
+    // Проверяем лимит кнопок
+    if (tabInfo.profiles.size() >= 5) {
+        QMessageBox::information(this, "Лимит профилей", 
+                               "Максимальное количество профилей на вкладке: 5");
+        return;
+    }
+
     // Создаем диалог для создания нового профиля
     QDialog dialog(this);
     dialog.setWindowTitle("Создать профиль сканирования");
     dialog.setModal(true);
+    dialog.resize(400, 300);
 
-    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    QVBoxLayout* mainLayout = new QVBoxLayout(&dialog);
 
     // Поле для имени профиля
     QHBoxLayout* nameLayout = new QHBoxLayout();
     QLabel* nameLabel = new QLabel("Имя профиля:");
     QLineEdit* nameEdit = new QLineEdit();
+    nameEdit->setPlaceholderText("Введите название профиля");
     nameLayout->addWidget(nameLabel);
     nameLayout->addWidget(nameEdit);
-    layout->addLayout(nameLayout);
+    mainLayout->addLayout(nameLayout);
+
+    // Настройки сканирования
+    QGroupBox* settingsGroup = new QGroupBox("Настройки сканирования");
+    QVBoxLayout* settingsLayout = new QVBoxLayout(settingsGroup);
+
+    // Режим цвета
+    QHBoxLayout* colorLayout = new QHBoxLayout();
+    QLabel* colorLabel = new QLabel("Режим цвета:");
+    QComboBox* colorCombo = new QComboBox();
+    if (activeDevice) {
+        colorCombo->addItems(activeDevice->getSupportedColorModes());
+    } else {
+        colorCombo->addItems({"Цветной", "Черно-белый", "Оттенки серого"});
+    }
+    colorLayout->addWidget(colorLabel);
+    colorLayout->addWidget(colorCombo);
+    settingsLayout->addLayout(colorLayout);
+
+    // Разрешение
+    QHBoxLayout* resolutionLayout = new QHBoxLayout();
+    QLabel* resolutionLabel = new QLabel("Разрешение:");
+    QComboBox* resolutionCombo = new QComboBox();
+    if (activeDevice) {
+        resolutionCombo->addItems(activeDevice->getSupportedResolutions());
+    } else {
+        resolutionCombo->addItems({"150 DPI", "300 DPI", "600 DPI"});
+    }
+    resolutionLayout->addWidget(resolutionLabel);
+    resolutionLayout->addWidget(resolutionCombo);
+    settingsLayout->addLayout(resolutionLayout);
+
+    // Область сканирования
+    QHBoxLayout* areaLayout = new QHBoxLayout();
+    QLabel* areaLabel = new QLabel("Область сканирования:");
+    QComboBox* areaCombo = new QComboBox();
+    if (activeDevice) {
+        areaCombo->addItems(activeDevice->getSupportedScanAreas());
+    } else {
+        areaCombo->addItems({"A4", "A3", "A5", "Letter"});
+    }
+    areaLayout->addWidget(areaLabel);
+    areaLayout->addWidget(areaCombo);
+    settingsLayout->addLayout(areaLayout);
+
+    // Качество изображения
+    QHBoxLayout* qualityLayout = new QHBoxLayout();
+    QLabel* qualityLabel = new QLabel("Качество:");
+    QSpinBox* qualitySpin = new QSpinBox();
+    qualitySpin->setRange(1, 100);
+    qualitySpin->setValue(90);
+    qualityLayout->addWidget(qualityLabel);
+    qualityLayout->addWidget(qualitySpin);
+    settingsLayout->addLayout(qualityLayout);
+
+    mainLayout->addWidget(settingsGroup);
+
+    // Настройки файла
+    QGroupBox* fileGroup = new QGroupBox("Настройки файла");
+    QVBoxLayout* fileLayout = new QVBoxLayout(fileGroup);
+
+    // Префикс файла
+    QHBoxLayout* prefixLayout = new QHBoxLayout();
+    QLabel* prefixLabel = new QLabel("Префикс файла:");
+    QLineEdit* prefixEdit = new QLineEdit();
+    prefixEdit->setPlaceholderText("Например: Документ");
+    prefixLayout->addWidget(prefixLabel);
+    prefixLayout->addWidget(prefixEdit);
+    fileLayout->addLayout(prefixLayout);
+
+    // Формат названия файла
+    QHBoxLayout* formatLayout = new QHBoxLayout();
+    QLabel* formatLabel = new QLabel("Формат названия:");
+    QComboBox* formatCombo = new QComboBox();
+    formatCombo->addItem("Префикс_ДатаВремя", "PREFIX_DATETIME");
+    formatCombo->addItem("Префикс_Дата", "PREFIX_DATE");
+    formatCombo->addItem("Префикс_Время", "PREFIX_TIME");
+    formatCombo->addItem("Префикс_Номер", "PREFIX_NUMBER");
+    formatCombo->addItem("Только префикс", "PREFIX_ONLY");
+    formatCombo->addItem("Только дата и время", "DATETIME_ONLY");
+    formatLayout->addWidget(formatLabel);
+    formatLayout->addWidget(formatCombo);
+    fileLayout->addLayout(formatLayout);
+
+    // Предварительный просмотр названия файла
+    QHBoxLayout* previewLayout = new QHBoxLayout();
+    QLabel* previewLabel = new QLabel("Предварительный просмотр:");
+    QLabel* previewText = new QLabel("Документ_2024-01-15_14-30-25");
+    previewText->setStyleSheet("color: #666; font-style: italic;");
+    previewLayout->addWidget(previewLabel);
+    previewLayout->addWidget(previewText);
+    fileLayout->addLayout(previewLayout);
+
+    // Функция обновления предварительного просмотра
+    auto updatePreview = [=]() {
+        QString prefix = prefixEdit->text().isEmpty() ? "Документ" : prefixEdit->text();
+        QString format = formatCombo->currentData().toString();
+        QString preview;
+        
+        QDateTime now = QDateTime::currentDateTime();
+        
+        if (format == "PREFIX_DATETIME") {
+            preview = prefix + "_" + now.toString("yyyy-MM-dd_hh-mm-ss");
+        } else if (format == "PREFIX_DATE") {
+            preview = prefix + "_" + now.toString("yyyy-MM-dd");
+        } else if (format == "PREFIX_TIME") {
+            preview = prefix + "_" + now.toString("hh-mm-ss");
+        } else if (format == "PREFIX_NUMBER") {
+            preview = prefix + "_001";
+        } else if (format == "PREFIX_ONLY") {
+            preview = prefix;
+        } else if (format == "DATETIME_ONLY") {
+            preview = now.toString("yyyy-MM-dd_hh-mm-ss");
+        }
+        
+        previewText->setText(preview);
+    };
+
+    connect(prefixEdit, &QLineEdit::textChanged, updatePreview);
+    connect(formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updatePreview);
+
+    mainLayout->addWidget(fileGroup);
 
     // Кнопки OK/Cancel
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* okButton = new QPushButton("OK");
+    QPushButton* okButton = new QPushButton("Создать");
     QPushButton* cancelButton = new QPushButton("Отмена");
 
     connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
@@ -352,25 +509,24 @@ void MainWindow::showProfileDialog(int tabIndex) {
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
-    layout->addLayout(buttonLayout);
+    mainLayout->addLayout(buttonLayout);
 
     if (dialog.exec() == QDialog::Accepted && !nameEdit->text().isEmpty()) {
         // Создаем новый профиль
         ScanProfile newProfile;
         newProfile.name = nameEdit->text();
         newProfile.buttonText = newProfile.name;
-
-        // Добавляем настройки по умолчанию
-        if (activeDevice) {
-            newProfile.colorMode = activeDevice->getSupportedColorModes().first();
-            newProfile.resolution = activeDevice->getSupportedResolutions().first();
-            newProfile.scanArea = activeDevice->getSupportedScanAreas().first();
-        }
+        newProfile.colorMode = colorCombo->currentText();
+        newProfile.resolution = resolutionCombo->currentText();
+        newProfile.scanArea = areaCombo->currentText();
+        newProfile.quality = qualitySpin->value();
+        
+        // Настройки файла
+        newProfile.filePrefix = prefixEdit->text().isEmpty() ? "Документ" : prefixEdit->text();
+        newProfile.fileFormat = formatCombo->currentData().toString();
 
         Settings& settings = Settings::getInstance();
         newProfile.outputPath = settings.getDefaultOutputPath();
-        newProfile.filePrefix = settings.getDefaultFilePrefix();
-        newProfile.quality = settings.getImageQuality();
 
         // Добавляем профиль в вкладку
         tabInfo.profiles.push_back(newProfile);
@@ -498,6 +654,7 @@ void MainWindow::loadTabs() {
             profile.scanArea = profileData.value("scanArea", "").toString();
             profile.outputPath = profileData.value("outputPath", "").toString();
             profile.filePrefix = profileData.value("filePrefix", "").toString();
+            profile.fileFormat = profileData.value("fileFormat", "PREFIX_DATETIME").toString();
             profile.quality = profileData.value("quality", 90).toInt();
             profile.buttonText = profileData.value("buttonText", profile.name).toString();
             
@@ -542,6 +699,7 @@ void MainWindow::saveTabs() {
             profileData["scanArea"] = profile.scanArea;
             profileData["outputPath"] = profile.outputPath;
             profileData["filePrefix"] = profile.filePrefix;
+            profileData["fileFormat"] = profile.fileFormat;
             profileData["quality"] = profile.quality;
             profileData["buttonText"] = profile.buttonText;
             
@@ -601,8 +759,13 @@ void MainWindow::setupTabContent(int tabIndex) {
         delete existingLayout;
     }
 
-    // Создаем новый layout
-    QVBoxLayout* layout = new QVBoxLayout(tabWidget);
+    // Создаем горизонтальный layout для кнопок профилей
+    QHBoxLayout* layout = new QHBoxLayout(tabWidget);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(15);
+
+    // Добавляем растягивающийся элемент для центрирования
+    layout->addStretch();
 
     // Добавляем существующие профили
     if (tabIndex < static_cast<int>(tabInfos.size())) {
@@ -611,7 +774,14 @@ void MainWindow::setupTabContent(int tabIndex) {
         }
     }
 
+    // Добавляем растягивающийся элемент для центрирования
     layout->addStretch();
+
+    // Включаем контекстное меню для вкладки
+    tabWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(tabWidget, &QWidget::customContextMenuRequested, [this, tabIndex](const QPoint& pos) {
+        showTabContextMenuForProfiles(tabIndex, pos);
+    });
 }
 
 void MainWindow::addProfileButton(int tabIndex, const ScanProfile& profile) {
@@ -623,14 +793,34 @@ void MainWindow::addProfileButton(int tabIndex, const ScanProfile& profile) {
     if (!tabWidget || !tabWidget->layout()) return;
 
     QPushButton* profileButton = new QPushButton(profile.buttonText);
-    profileButton->setMinimumHeight(50);
+    profileButton->setFixedSize(120, 120); // Большие квадратные кнопки
+    profileButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #2196F3;"
+        "    color: white;"
+        "    border: none;"
+        "    border-radius: 12px;"
+        "    font-weight: bold;"
+        "    font-size: 14px;"
+        "    padding: 8px;"
+        "    text-align: center;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #1976D2;"
+        "    transform: scale(1.05);"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #1565C0;"
+        "    transform: scale(0.95);"
+        "}"
+    );
 
     connect(profileButton, &QPushButton::clicked, [this, profile]() {
         scanWithProfile(profile);
     });
 
     // Вставляем кнопку перед stretch элементом
-    QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(tabWidget->layout());
+    QHBoxLayout* layout = qobject_cast<QHBoxLayout*>(tabWidget->layout());
     if (layout) {
         int insertIndex = layout->count() - 1; // Перед stretch
         layout->insertWidget(insertIndex, profileButton);
@@ -661,10 +851,8 @@ void MainWindow::scanWithProfile(const ScanProfile& profile) {
     try {
         QImage image = CScanFront::scanImage(activeDevice);
 
-        // Используем настройки профиля для пути и имени файла
-        QString filename = profile.outputPath + "/" + profile.filePrefix +
-                          QString::number(QDateTime::currentMSecsSinceEpoch()) +
-                          activeDevice->getExtension();
+        // Генерируем имя файла согласно настройкам профиля
+        QString filename = generateFileName(profile);
 
         image.save(filename, nullptr, profile.quality);
 
@@ -677,5 +865,31 @@ void MainWindow::scanWithProfile(const ScanProfile& profile) {
         QMessageBox::critical(this, "Ошибка сканирования",
                             "Неизвестная ошибка сканирования");
     }
+}
+
+QString MainWindow::generateFileName(const ScanProfile& profile) {
+    QString filename;
+    QDateTime now = QDateTime::currentDateTime();
+    
+    if (profile.fileFormat == "PREFIX_DATETIME") {
+        filename = profile.filePrefix + "_" + now.toString("yyyy-MM-dd_hh-mm-ss");
+    } else if (profile.fileFormat == "PREFIX_DATE") {
+        filename = profile.filePrefix + "_" + now.toString("yyyy-MM-dd");
+    } else if (profile.fileFormat == "PREFIX_TIME") {
+        filename = profile.filePrefix + "_" + now.toString("hh-mm-ss");
+    } else if (profile.fileFormat == "PREFIX_NUMBER") {
+        // Генерируем уникальный номер
+        static int fileCounter = 1;
+        filename = profile.filePrefix + "_" + QString::number(fileCounter++).rightJustified(3, '0');
+    } else if (profile.fileFormat == "PREFIX_ONLY") {
+        filename = profile.filePrefix;
+    } else if (profile.fileFormat == "DATETIME_ONLY") {
+        filename = now.toString("yyyy-MM-dd_hh-mm-ss");
+    } else {
+        // По умолчанию используем префикс + дата и время
+        filename = profile.filePrefix + "_" + now.toString("yyyy-MM-dd_hh-mm-ss");
+    }
+    
+    return profile.outputPath + "/" + filename + activeDevice->getExtension();
 }
 
