@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/i18n">
+        <file>AdvancedScan_ru_RU.ts</file>
+    </qresource>
+</RCC>

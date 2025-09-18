@@ -1,10 +1,10 @@
 #include "cscanfront.h"
 
-
 #include <QProcess>
 #include <cscanner.h>
 #include <qstring.h>
 #include <QImage>
+#include <memory>
 
 
 
@@ -16,51 +16,41 @@ std::vector<CScanner*> CScanFront::getDevices() {
     std::vector<CScanner*> devices;
     QProcess proc;
 
-    // Объекты фабрик
-    CBrotherScannerFactory* brotherFactory = new CBrotherScannerFactory();
-    CDummyScannerFactory* dummyFactory = new CDummyScannerFactory();
-    CHPScannerFactory* hpFactory = new CHPScannerFactory();
+    // Объекты фабрик с автоматическим управлением памятью
+    std::unique_ptr<CBrotherScannerFactory> brotherFactory = std::make_unique<CBrotherScannerFactory>();
+    std::unique_ptr<CDummyScannerFactory> dummyFactory = std::make_unique<CDummyScannerFactory>();
+    std::unique_ptr<CHPScannerFactory> hpFactory = std::make_unique<CHPScannerFactory>();
 
     // Запускаем поиск сканеров
     proc.start("scanimage", {"-f", "%d=>%v=>%m%n"});
 
     // Если поиск затянулся
     if (!proc.waitForFinished()) {
-        delete brotherFactory;
-        delete dummyFactory;
-        delete hpFactory;
         return devices;
     }
 
     // Читаем инфу из стандартного вывода команды
     QString data = QString::fromUtf8(proc.readAllStandardOutput().constData());
 
-    //
-    if (data == "") {
-        delete brotherFactory;
-        delete dummyFactory;
-        delete hpFactory;
+    if (data.isEmpty()) {
         return devices;
     }
 
-    QStringList lines;
-    lines = data.split("\n");
+    QStringList lines = data.split("\n");
 
-  for (const QString &line : lines) {
-        if (line == "") continue;
+    for (const QString &line : lines) {
+        if (line.isEmpty()) continue;
         QStringList elements = line.split("=>");
+        if (elements.size() < 3) continue; // Проверка на достаточное количество элементов
+        
         if (elements[1] == "Hewlett-Packard") {
-            devices.push_back(hpFactory->createScanner(elements[0],elements[1],elements[2]));
+            devices.push_back(hpFactory->createScanner(elements[0], elements[1], elements[2]));
         } else if (elements[1] == "Brother") {
-            devices.push_back(brotherFactory->createScanner(elements[0],elements[1],elements[2]));
+            devices.push_back(brotherFactory->createScanner(elements[0], elements[1], elements[2]));
         } else {
-            devices.push_back(dummyFactory->createScanner(elements[0],elements[1],elements[2]));
+            devices.push_back(dummyFactory->createScanner(elements[0], elements[1], elements[2]));
         }
     }
-
-      delete brotherFactory;
-      delete dummyFactory;
-      delete hpFactory;
 
     return devices;
 }

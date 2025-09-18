@@ -7,16 +7,23 @@ CDummyScanner::CDummyScanner(QString device, QString vendor, QString model){
     this->vendor = vendor;
     this->model = model;
 
-    this->colors = {"Color"};
-    this->dpis = {"100"};
-    this->pageFormats = {"Maximum Area"};
-    this->scanAreas = {"-x 215.88 -y 296.973"};
-    this->formats = {"jpeg"};
-    this->extensions = {".jpg"};
+    this->colors = QStringList{"Color"};
+    this->dpis = QStringList{"100"};
+    this->pageFormats = QStringList{"Maximum Area"};
+    this->scanAreas = QStringList{"-x 215.88 -y 296.973"};
+    this->formats = QStringList{"jpeg"};
+    this->extensions = QStringList{".jpg"};
     this->defaultColorIndex = 0;
     this->defaultResolutionIndex = 0;
     this->defaultScanAreaIndex = 0;
     this->extension = this->extensions[this->defaultColorIndex];
+    
+    // Инициализируем значения по умолчанию
+    this->color = this->colors[this->defaultColorIndex];
+    this->format = this->formats[this->defaultColorIndex];
+    this->resolution = this->dpis[this->defaultResolutionIndex];
+    this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
+    this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
 }
 
 QString CDummyScanner::getDevice() {
@@ -90,6 +97,12 @@ QList<QString> CDummyScanner::getArgs() {
     QList<QString> args;
 
     this->cropNeeded = false;
+    
+    // Добавляем базовые аргументы для dummy сканера
+    args = {"-d", this->getDevice()};
+    args.append("--mode=" + this->color);
+    args.append("--resolution=" + this->resolution);
+    args.append("--format=" + this->format);
 
     return args;
 }
@@ -101,17 +114,24 @@ CHPScanner::CHPScanner(QString device, QString vendor, QString model) {
     this->vendor = vendor;
     this->model = model;
 
-    this->colors = {"Color", "Gray", "Lineart"};
-    this->dpis = {"100", "200", "300", "600", "1200"};
-    this->pageFormats = {"Maximum Area", "A4 (210x297mm)", "Letter (8.5x11 in)", "4R (4x6in)"};
-    this->scanAreas = {"-x 215.9 -y 297.01", "-x 210 -y 297",
+    this->colors = QStringList{"Color", "Gray", "Lineart"};
+    this->dpis = QStringList{"100", "200", "300", "600", "1200"};
+    this->pageFormats = QStringList{"Maximum Area", "A4 (210x297mm)", "Letter (8.5x11 in)", "4R (4x6in)"};
+    this->scanAreas = QStringList{"-x 215.9 -y 297.01", "-x 210 -y 297",
                        "-x 215.9 -y 279.4", "-x 152.4 -y 101.6"};
-    this->formats = {"jpeg", "jpeg", "tiff"};
-    this->extensions = {".jpg", ".jpg", ".tiff"};
+    this->formats = QStringList{"jpeg", "jpeg", "tiff"};
+    this->extensions = QStringList{".jpg", ".jpg", ".tiff"};
     this->defaultColorIndex = 0;
     this->defaultResolutionIndex = 2;
     this->defaultScanAreaIndex = 1;
     this->extension = this->extensions[this->defaultColorIndex];
+    
+    // Инициализируем значения по умолчанию
+    this->color = this->colors[this->defaultColorIndex];
+    this->format = this->formats[this->defaultColorIndex];
+    this->resolution = this->dpis[this->defaultResolutionIndex];
+    this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
+    this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
 }
 
 QString CHPScanner::getDevice() {
@@ -202,17 +222,24 @@ CBrotherScanner::CBrotherScanner(QString device, QString vendor, QString model) 
     this->vendor = vendor;
     this->model = model;
 
-    this->colors = {"24bit Color", "True Gray", "Black & White", "Gray[Error Diffusion]"};
-    this->dpis = {"100", "200", "300", "400", "600"};
-    this->pageFormats = {"Maximum Area", "A4 (210x297mm)", "Letter (8.5x11 in)", "4R (4x6in)"};
-    this->scanAreas = {"-x 215.9 -y 297.01", "-x 210 -y 297",
+    this->colors = QStringList{"24bit Color", "True Gray", "Black & White", "Gray[Error Diffusion]"};
+    this->dpis = QStringList{"100", "200", "300", "400", "600"};
+    this->pageFormats = QStringList{"Maximum Area", "A4 (210x297mm)", "Letter (8.5x11 in)", "4R (4x6in)"};
+    this->scanAreas = QStringList{"-x 215.9 -y 297.01", "-x 210 -y 297",
                        "-x 215.9 -y 279.4", "-x 152.4 -y 101.6"};
-    this->formats = {"jpeg", "jpeg", "tiff", "tiff"};
-    this->extensions = {".jpg", ".jpg", ".tiff", ".tiff"};
+    this->formats = QStringList{"jpeg", "jpeg", "tiff", "tiff"};
+    this->extensions = QStringList{".jpg", ".jpg", ".tiff", ".tiff"};
     this->defaultColorIndex = 0;
     this->defaultResolutionIndex = 3;
     this->defaultScanAreaIndex = 1;
     this->extension = this->extensions[this->defaultColorIndex];
+    
+    // Инициализируем значения по умолчанию
+    this->color = this->colors[this->defaultColorIndex];
+    this->format = this->formats[this->defaultColorIndex];
+    this->resolution = this->dpis[this->defaultResolutionIndex];
+    this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
+    this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
 }
 QString CBrotherScanner::getDevice() {
     return this->device;
