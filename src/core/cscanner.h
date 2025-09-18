@@ -24,6 +24,8 @@ public:
     virtual void setSelectedColor(int index) = 0;
     virtual void setSelectedResolution(int index) = 0;
     virtual void setSelectedScanArea(int index) = 0;
+    virtual void setCustomScanArea(const QRect& area) = 0;
+    virtual void resetCustomScanArea() = 0;
     virtual QList<QString> getArgs() = 0;
 
     virtual ~CScanner() {}
@@ -50,6 +52,10 @@ protected:
     int defaultColorIndex;
     int defaultResolutionIndex;
     int defaultScanAreaIndex;
+    
+    // Пользовательская область сканирования
+    bool useCustomArea;
+    QRect customArea;
 };
 
 class CDummyScanner: public CScanner {
@@ -72,6 +78,8 @@ public:
     void setSelectedColor(int index);
     void setSelectedResolution(int index);
     void setSelectedScanArea(int index);
+    void setCustomScanArea(const QRect& area);
+    void resetCustomScanArea();
     QList<QString> getArgs();
 };
 
@@ -94,6 +102,8 @@ public:
     void setSelectedColor(int index);
     void setSelectedResolution(int index);
     void setSelectedScanArea(int index);
+    void setCustomScanArea(const QRect& area);
+    void resetCustomScanArea();
     QList<QString> getArgs();
 };
 
@@ -116,6 +126,8 @@ public:
     void setSelectedColor(int index);
     void setSelectedResolution(int index);
     void setSelectedScanArea(int index);
+    void setCustomScanArea(const QRect& area);
+    void resetCustomScanArea();
     QList<QString> getArgs();
 };
 

@@ -219,3 +219,29 @@ void FileManager::scaleImageToPage(QPainter& painter, const QImage& image, const
     // Рисуем изображение
     painter.drawImage(imageRect, image);
 }
+
+QImage FileManager::cropImage(const QImage& image, const QRect& cropArea) const
+{
+    if (image.isNull() || cropArea.isEmpty()) {
+        return QImage();
+    }
+    
+    // Проверяем, что область обрезки находится в пределах изображения
+    QRect validArea = cropArea.intersected(QRect(0, 0, image.width(), image.height()));
+    
+    if (validArea.isEmpty()) {
+        return QImage();
+    }
+    
+    // Создаем обрезанное изображение
+    return image.copy(validArea);
+}
+
+QImage FileManager::resizeImage(const QImage& image, const QSize& size) const
+{
+    if (image.isNull() || size.isEmpty()) {
+        return QImage();
+    }
+    
+    return image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}

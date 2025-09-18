@@ -1,4 +1,5 @@
 #include "cscanner.h"
+#include <QDebug>
 
 //------------------- DUMMY SCANNER ----------------
 
@@ -24,6 +25,10 @@ CDummyScanner::CDummyScanner(QString device, QString vendor, QString model){
     this->resolution = this->dpis[this->defaultResolutionIndex];
     this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
     this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
+    
+    // Инициализируем пользовательскую область
+    this->useCustomArea = false;
+    this->customArea = QRect();
 }
 
 QString CDummyScanner::getDevice() {
@@ -104,6 +109,36 @@ QList<QString> CDummyScanner::getArgs() {
     args.append("--resolution=" + this->resolution);
     args.append("--format=" + this->format);
 
+    // Добавляем область сканирования
+    if (this->useCustomArea && !this->customArea.isEmpty()) {
+        // Используем пользовательскую область (в миллиметрах)
+        // Конвертируем из пикселей в миллиметры (примерно 25.4 мм на дюйм)
+        qreal dpi = this->resolution.toDouble();
+        qreal mmPerPixel = 25.4 / dpi;
+        
+        int x = static_cast<int>(this->customArea.x() * mmPerPixel);
+        int y = static_cast<int>(this->customArea.y() * mmPerPixel);
+        int width = static_cast<int>(this->customArea.width() * mmPerPixel);
+        int height = static_cast<int>(this->customArea.height() * mmPerPixel);
+        
+        qDebug() << "CDummyScanner: Custom area - Original:" << this->customArea;
+        qDebug() << "CDummyScanner: DPI:" << dpi << "mmPerPixel:" << mmPerPixel;
+        qDebug() << "CDummyScanner: Converted - x:" << x << "y:" << y << "w:" << width << "h:" << height;
+        
+        args.append("-l");
+        args.append(QString::number(x));
+        args.append("-t");
+        args.append(QString::number(y));
+        args.append("-x");
+        args.append(QString::number(width));
+        args.append("-y");
+        args.append(QString::number(height));
+        
+        qDebug() << "CDummyScanner: Final args:" << args;
+    } else if (!(this->pageFormat.startsWith("Maximum"))) {
+        args += this->scanArea.split(" ");
+    }
+
     return args;
 }
 
@@ -132,6 +167,10 @@ CHPScanner::CHPScanner(QString device, QString vendor, QString model) {
     this->resolution = this->dpis[this->defaultResolutionIndex];
     this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
     this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
+    
+    // Инициализируем пользовательскую область
+    this->useCustomArea = false;
+    this->customArea = QRect();
 }
 
 QString CHPScanner::getDevice() {
@@ -204,12 +243,30 @@ QList<QString> CHPScanner::getArgs() {
     args.append("--resolution=" + this->resolution);
     args.append("--format="+this->format);
 
-    if (this->pageFormat.startsWith("A4") && this->resolution=="300") {
+    // Добавляем область сканирования
+    if (this->useCustomArea && !this->customArea.isEmpty()) {
+        // Используем пользовательскую область (в миллиметрах)
+        qreal dpi = this->resolution.toDouble();
+        qreal mmPerPixel = 25.4 / dpi;
+        
+        int x = static_cast<int>(this->customArea.x() * mmPerPixel);
+        int y = static_cast<int>(this->customArea.y() * mmPerPixel);
+        int width = static_cast<int>(this->customArea.width() * mmPerPixel);
+        int height = static_cast<int>(this->customArea.height() * mmPerPixel);
+        
+        args.append("-l");
+        args.append(QString::number(x));
+        args.append("-t");
+        args.append(QString::number(y));
+        args.append("-x");
+        args.append(QString::number(width));
+        args.append("-y");
+        args.append(QString::number(height));
+    } else if (this->pageFormat.startsWith("A4") && this->resolution=="300") {
         this->cropNeeded = true;
         this->cropRect = QRect(8,0,2488,3500); // 2480x3508
         return args;
-    }
-    if (!(this->pageFormat.startsWith("Maximum"))) {
+    } else if (!(this->pageFormat.startsWith("Maximum"))) {
         args += this->scanArea.split(" ");
     }
     return args;
@@ -240,6 +297,10 @@ CBrotherScanner::CBrotherScanner(QString device, QString vendor, QString model) 
     this->resolution = this->dpis[this->defaultResolutionIndex];
     this->pageFormat = this->pageFormats[this->defaultScanAreaIndex];
     this->scanArea = this->scanAreas[this->defaultScanAreaIndex];
+    
+    // Инициализируем пользовательскую область
+    this->useCustomArea = false;
+    this->customArea = QRect();
 }
 QString CBrotherScanner::getDevice() {
     return this->device;
@@ -314,8 +375,58 @@ QList<QString> CBrotherScanner::getArgs() {
     args.append("--resolution=" + this->resolution);
     args.append("--format="+this->format);
 
-    if (!(this->pageFormat.startsWith("Maximum"))) {
+    // Добавляем область сканирования
+    if (this->useCustomArea && !this->customArea.isEmpty()) {
+        // Используем пользовательскую область (в миллиметрах)
+        qreal dpi = this->resolution.toDouble();
+        qreal mmPerPixel = 25.4 / dpi;
+        
+        int x = static_cast<int>(this->customArea.x() * mmPerPixel);
+        int y = static_cast<int>(this->customArea.y() * mmPerPixel);
+        int width = static_cast<int>(this->customArea.width() * mmPerPixel);
+        int height = static_cast<int>(this->customArea.height() * mmPerPixel);
+        
+        args.append("-l");
+        args.append(QString::number(x));
+        args.append("-t");
+        args.append(QString::number(y));
+        args.append("-x");
+        args.append(QString::number(width));
+        args.append("-y");
+        args.append(QString::number(height));
+    } else if (!(this->pageFormat.startsWith("Maximum"))) {
         args += this->scanArea.split(" ");
     }
     return args;
+}
+
+// Реализация setCustomScanArea для всех сканеров
+void CDummyScanner::setCustomScanArea(const QRect& area) {
+    this->useCustomArea = true;
+    this->customArea = area;
+}
+
+void CDummyScanner::resetCustomScanArea() {
+    this->useCustomArea = false;
+    this->customArea = QRect();
+}
+
+void CHPScanner::setCustomScanArea(const QRect& area) {
+    this->useCustomArea = true;
+    this->customArea = area;
+}
+
+void CHPScanner::resetCustomScanArea() {
+    this->useCustomArea = false;
+    this->customArea = QRect();
+}
+
+void CBrotherScanner::setCustomScanArea(const QRect& area) {
+    this->useCustomArea = true;
+    this->customArea = area;
+}
+
+void CBrotherScanner::resetCustomScanArea() {
+    this->useCustomArea = false;
+    this->customArea = QRect();
 }

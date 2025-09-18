@@ -23,6 +23,8 @@ set(PROJECT_SOURCES
         src/ui/mainwindow.ui
         src/ui/settingswindow.h
         src/ui/settingswindow.cpp
+        src/ui/previewwindow.h
+        src/ui/previewwindow.cpp
         src/core/cscanfront.h 
         src/core/cscanfront.cpp
         src/core/cscanner.h 

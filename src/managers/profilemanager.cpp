@@ -1,5 +1,6 @@
 #include "profilemanager.h"
 #include "../core/settings.h"
+#include "../ui/previewwindow.h"
 #include <QDebug>
 #include <QMenu>
 #include <QAction>
@@ -7,6 +8,7 @@
 
 ProfileManager::ProfileManager(QObject *parent)
     : QObject(parent)
+    , scannerManager(nullptr)
 {
 }
 
@@ -23,7 +25,7 @@ void ProfileManager::showProfileDialog(int tabIndex, const QStringList& colorMod
     dialog.resize(400, 300);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(&dialog);
-    setupProfileDialog(dialog, mainLayout, colorModes, resolutions, scanAreas);
+    setupProfileDialog(dialog, mainLayout, colorModes, resolutions, scanAreas, nullptr);
 
     if (dialog.exec() == QDialog::Accepted) {
         // Получаем данные из диалога
@@ -209,10 +211,11 @@ void ProfileManager::setProfiles(int tabIndex, const std::vector<ScanProfile>& p
     }
 }
 
-void ProfileManager::setupProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout, 
-                                       const QStringList& colorModes, 
-                                       const QStringList& resolutions, 
-                                       const QStringList& scanAreas)
+void ProfileManager::setupProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout,
+                              const QStringList& colorModes, 
+                              const QStringList& resolutions, 
+                              const QStringList& scanAreas,
+                              ScanProfile* tempProfile)
 {
     // Поле для имени профиля
     QHBoxLayout* nameLayout = new QHBoxLayout();
@@ -359,14 +362,41 @@ void ProfileManager::setupProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout
 
     mainLayout->addWidget(fileGroup);
 
-    // Кнопки OK/Cancel
+    // Кнопки OK/Cancel/Preview
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* previewButton = new QPushButton("Предпросмотр");
     QPushButton* okButton = new QPushButton("Создать");
     QPushButton* cancelButton = new QPushButton("Отмена");
 
+    connect(previewButton, &QPushButton::clicked, [this, &dialog, nameEdit, colorCombo, resolutionCombo, areaCombo, qualitySpin, prefixEdit, formatCombo, outputFormatCombo, tempProfile]() {
+        // Создаем временный профиль для предпросмотра
+        ProfileManager::ScanProfile previewProfile;
+        previewProfile.name = nameEdit->text().isEmpty() ? "Предпросмотр" : nameEdit->text();
+        previewProfile.colorMode = colorCombo->currentText();
+        previewProfile.resolution = resolutionCombo->currentText();
+        previewProfile.scanArea = areaCombo->currentText();
+        previewProfile.quality = qualitySpin->value();
+        previewProfile.filePrefix = prefixEdit->text().isEmpty() ? "Документ" : prefixEdit->text();
+        previewProfile.fileFormat = formatCombo->currentData().toString();
+        previewProfile.outputFormat = outputFormatCombo->currentData().toString();
+        previewProfile.outputPath = Settings::getInstance().getDefaultOutputPath();
+        
+        // Показываем диалог предпросмотра и получаем обновленный профиль
+        if (scannerManager) {
+            ScanProfile updatedProfile = showPreviewDialogWithResult(previewProfile, scannerManager, &dialog);
+            if (tempProfile) {
+                *tempProfile = updatedProfile;
+                qDebug() << "ProfileManager: After preview, tempProfile->useCustomArea:" << tempProfile->useCustomArea;
+                qDebug() << "ProfileManager: After preview, tempProfile->customArea:" << tempProfile->customArea;
+            }
+        } else {
+            showPreviewDialog(previewProfile, &dialog);
+        }
+    });
     connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
     connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
 
+    buttonLayout->addWidget(previewButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
@@ -574,6 +604,11 @@ ProfileManager::ScanProfile ProfileManager::createProfileFromDialog(QDialog& dia
     Settings& settings = Settings::getInstance();
     newProfile.outputPath = settings.getDefaultOutputPath();
     
+    // Инициализируем поля для пользовательской области сканирования
+    newProfile.useCustomArea = false;
+    newProfile.customArea = QRect();
+    newProfile.previewArea = QRect();
+    
     return newProfile;
 }
 
@@ -590,4 +625,115 @@ void ProfileManager::onProfileUpdated(int tabIndex, const ScanProfile& profile)
 void ProfileManager::onProfileDeleted(int tabIndex, const QString& profileName)
 {
     // Реализация будет добавлена позже
+}
+
+void ProfileManager::showPreviewDialog(const ScanProfile& profile, QWidget* parent)
+{
+    PreviewWindow dialog(profile, nullptr, parent);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        QRect selectedArea = dialog.getSelectedArea();
+        if (!selectedArea.isEmpty()) {
+            // Создаем копию профиля с обновленной областью
+            ScanProfile updatedProfile = profile;
+            updatedProfile.useCustomArea = true;
+            updatedProfile.customArea = selectedArea;
+            
+            emit profileUpdated(-1, updatedProfile); // -1 означает обновление текущего профиля
+        }
+    }
+}
+
+void ProfileManager::showPreviewDialog(const ScanProfile& profile, ScannerManager* scannerManager, QWidget* parent)
+{
+    PreviewWindow dialog(profile, scannerManager, parent);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        QRect selectedArea = dialog.getSelectedArea();
+        if (!selectedArea.isEmpty()) {
+            // Создаем копию профиля с обновленной областью
+            ScanProfile updatedProfile = profile;
+            updatedProfile.useCustomArea = true;
+            updatedProfile.customArea = selectedArea;
+            
+            emit profileUpdated(-1, updatedProfile); // -1 означает обновление текущего профиля
+        }
+    }
+}
+
+ProfileManager::ScanProfile ProfileManager::showPreviewDialogWithResult(const ScanProfile& profile, ScannerManager* scannerManager, QWidget* parent)
+{
+    PreviewWindow dialog(profile, scannerManager, parent);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        QRect selectedArea = dialog.getSelectedArea();
+        if (!selectedArea.isEmpty()) {
+            // Создаем копию профиля с обновленной областью
+            ScanProfile updatedProfile = profile;
+            updatedProfile.useCustomArea = true;
+            updatedProfile.customArea = selectedArea;
+            return updatedProfile;
+        }
+    }
+    
+    return profile; // Возвращаем исходный профиль, если ничего не выбрано
+}
+
+ProfileManager::ScanProfile ProfileManager::showProfileDialogWithResult(int tabIndex, const QStringList& colorModes, 
+                          const QStringList& resolutions, const QStringList& scanAreas)
+{
+    QDialog dialog;
+    dialog.setWindowTitle("Создать профиль");
+    dialog.setModal(true);
+    dialog.resize(400, 500);
+    
+    QVBoxLayout* mainLayout = new QVBoxLayout(&dialog);
+    
+    // Создаем временный профиль
+    ScanProfile tempProfile;
+    tempProfile.useCustomArea = false;
+    tempProfile.customArea = QRect();
+    
+    setupProfileDialog(dialog, mainLayout, colorModes, resolutions, scanAreas, &tempProfile);
+    
+    // Показываем диалог и получаем результат
+    if (dialog.exec() == QDialog::Accepted) {
+        // Создаем профиль из диалога
+        QLineEdit* nameEdit = dialog.findChild<QLineEdit*>("nameEdit");
+        QComboBox* colorCombo = dialog.findChild<QComboBox*>("colorCombo");
+        QComboBox* resolutionCombo = dialog.findChild<QComboBox*>("resolutionCombo");
+        QComboBox* areaCombo = dialog.findChild<QComboBox*>("areaCombo");
+        QSpinBox* qualitySpin = dialog.findChild<QSpinBox*>("qualitySpin");
+        QLineEdit* prefixEdit = dialog.findChild<QLineEdit*>("prefixEdit");
+        QComboBox* formatCombo = dialog.findChild<QComboBox*>("formatCombo");
+        QComboBox* outputFormatCombo = dialog.findChild<QComboBox*>("outputFormatCombo");
+        
+        if (nameEdit && !nameEdit->text().isEmpty()) {
+            ScanProfile newProfile = createProfileFromDialog(dialog, nameEdit, colorCombo, 
+                                                           resolutionCombo, areaCombo, qualitySpin,
+                                                           prefixEdit, formatCombo, outputFormatCombo);
+            
+            // Если есть пользовательская область, добавляем её
+            if (tempProfile.useCustomArea && !tempProfile.customArea.isEmpty()) {
+                newProfile.useCustomArea = true;
+                newProfile.customArea = tempProfile.customArea;
+                qDebug() << "ProfileManager: Added custom area to profile:" << newProfile.customArea;
+            }
+            
+            return newProfile;
+        }
+    }
+    
+    return tempProfile; // Возвращаем пустой профиль, если диалог отменен
+}
+
+void ProfileManager::updateProfileWithCustomArea(ScanProfile& profile, const QRect& customArea)
+{
+    profile.useCustomArea = true;
+    profile.customArea = customArea;
+}
+
+void ProfileManager::setScannerManager(ScannerManager* scannerManager)
+{
+    this->scannerManager = scannerManager;
 }

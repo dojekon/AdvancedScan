@@ -4,6 +4,7 @@
 #include "cscanner.h"
 #include <qstring.h>
 #include <QImage>
+#include <QDebug>
 #include <memory>
 
 
@@ -60,14 +61,19 @@ QImage CScanFront::scanImage(CScanner* scanner) {
     QImage image;
 
     QList args = scanner->getArgs();
+    
+    qDebug() << "CScanFront: Executing scanimage with args:" << args;
 
     proc.start("scanimage", args);
     if ((!proc.waitForFinished(-1))||(proc.exitCode())) {
         QString error = QString::fromUtf8(proc.readAllStandardError().constData());
+        qDebug() << "CScanFront: scanimage error:" << error;
         throw std::runtime_error("Error:" + error.toStdString());
     }
     QByteArray data = proc.readAllStandardOutput();
     image = QImage::fromData(data);
+    
+    qDebug() << "CScanFront: Scanned image size:" << image.size();
 
     if (scanner->getCropNeeded()) {
         image = image.copy(scanner->getCropRect());

@@ -44,6 +44,11 @@ public:
         QString outputFormat;
         int quality;
         QString buttonText;
+        
+        // Пользовательская область сканирования
+        bool useCustomArea;
+        QRect customArea; // x, y, width, height в пикселях
+        QRect previewArea; // область на предпросмотре для выделения
     };
 
     explicit ProfileManager(QObject *parent = nullptr);
@@ -52,11 +57,22 @@ public:
     // Основные методы
     void showProfileDialog(int tabIndex, const QStringList& colorModes, 
                           const QStringList& resolutions, const QStringList& scanAreas);
+    ScanProfile showProfileDialogWithResult(int tabIndex, const QStringList& colorModes, 
+                          const QStringList& resolutions, const QStringList& scanAreas);
     void showEditProfileDialog(int tabIndex, const ScanProfile& profile,
                               const QStringList& colorModes, 
                               const QStringList& resolutions, 
                               const QStringList& scanAreas);
     void showProfileContextMenu(int tabIndex, const ScanProfile& profile, const QPoint& pos);
+    
+    // Методы для работы с предпросмотром
+    void showPreviewDialog(const ScanProfile& profile, QWidget* parent = nullptr);
+    void showPreviewDialog(const ScanProfile& profile, class ScannerManager* scannerManager, QWidget* parent = nullptr);
+    ScanProfile showPreviewDialogWithResult(const ScanProfile& profile, class ScannerManager* scannerManager, QWidget* parent = nullptr);
+    void updateProfileWithCustomArea(ScanProfile& profile, const QRect& customArea);
+    
+    // Метод для установки ScannerManager
+    void setScannerManager(class ScannerManager* scannerManager);
     
     // Методы для работы с профилями
     QString generateFileName(const ScanProfile& profile);
@@ -79,10 +95,11 @@ private slots:
     void onProfileDeleted(int tabIndex, const QString& profileName);
 
 private:
-    void setupProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout, 
-                           const QStringList& colorModes, 
-                           const QStringList& resolutions, 
-                           const QStringList& scanAreas);
+    void setupProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout,
+                              const QStringList& colorModes, 
+                              const QStringList& resolutions, 
+                              const QStringList& scanAreas,
+                              ScanProfile* tempProfile = nullptr);
     void setupEditProfileDialog(QDialog& dialog, QVBoxLayout* mainLayout, 
                                const ScanProfile& profile,
                                const QStringList& colorModes, 
@@ -101,6 +118,7 @@ private:
                                        QComboBox* outputFormatCombo);
     
     std::vector<std::vector<ScanProfile>> tabProfiles;
+    class ScannerManager* scannerManager;
 };
 
 #endif // PROFILEMANAGER_H

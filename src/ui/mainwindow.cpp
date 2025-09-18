@@ -33,6 +33,9 @@ MainWindow::MainWindow(QWidget *parent)
     profileManager = new ProfileManager(this);
     tabManager = new TabManager(ui->tabWidget, this);
     fileManager = new FileManager(this);
+    
+    // Устанавливаем связи между менеджерами
+    profileManager->setScannerManager(scannerManager);
 
     // Настраиваем соединения
     setupConnections();
@@ -110,6 +113,9 @@ void MainWindow::on_pushButton_clicked()
 
     // Применяем настройки по умолчанию
     scannerManager->applyDefaultSettings();
+    
+    // Сбрасываем пользовательскую область для обычного сканирования
+    scannerManager->getActiveDevice()->resetCustomScanArea();
     
     updateStatusBar("Сканирование начато...");
 
@@ -198,7 +204,10 @@ void MainWindow::onProfileContextMenuRequested(int tabIndex, const ProfileManage
         QStringList resolutions = scannerManager->getSupportedResolutions();
         QStringList scanAreas = scannerManager->getSupportedScanAreas();
         
-        profileManager->showProfileDialog(tabIndex, colorModes, resolutions, scanAreas);
+        ProfileManager::ScanProfile newProfile = profileManager->showProfileDialogWithResult(tabIndex, colorModes, resolutions, scanAreas);
+        if (!newProfile.name.isEmpty()) {
+            emit profileManager->profileCreated(tabIndex, newProfile);
+        }
     } else {
         // Редактирование существующего профиля
         QStringList colorModes = scannerManager->getSupportedColorModes();
@@ -275,6 +284,14 @@ void MainWindow::scanWithProfile(const ProfileManager::ScanProfile& profile)
     if (colorIndex >= 0) scannerManager->getActiveDevice()->setSelectedColor(colorIndex);
     if (resolutionIndex >= 0) scannerManager->getActiveDevice()->setSelectedResolution(resolutionIndex);
     if (scanAreaIndex >= 0) scannerManager->getActiveDevice()->setSelectedScanArea(scanAreaIndex);
+    
+    // Если есть пользовательская область, устанавливаем её в сканер
+    if (profile.useCustomArea && !profile.customArea.isEmpty()) {
+        qDebug() << "MainWindow: Setting custom area:" << profile.customArea;
+        scannerManager->getActiveDevice()->setCustomScanArea(profile.customArea);
+    } else {
+        qDebug() << "MainWindow: No custom area set, useCustomArea:" << profile.useCustomArea;
+    }
 
     updateStatusBar("Сканирование с профилем: " + profile.name);
 

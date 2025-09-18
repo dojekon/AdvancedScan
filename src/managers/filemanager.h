@@ -37,6 +37,10 @@ public:
     bool createDirectory(const QString& path) const;
     QString getFileExtension(const QString& filename) const;
     QString getFileNameWithoutExtension(const QString& filename) const;
+    
+    // Методы для работы с изображениями
+    QImage cropImage(const QImage& image, const QRect& cropArea) const;
+    QImage resizeImage(const QImage& image, const QSize& size) const;
 
 signals:
     void fileSaved(const QString& filename);
